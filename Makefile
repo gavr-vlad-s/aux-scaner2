@@ -6,8 +6,8 @@ BIN           = aux-scaner-test
 LIBS          = -lboost_filesystem -lboost_system
 vpath %.cpp src
 vpath %.o build
-OBJ           = aux-scaner-test.o error_count.o char_conv.o char_trie.o
-LINKOBJ       = build/aux-scaner-test.o build/error_count.o build/char_conv.o build/char_trie.o
+OBJ           = aux-scaner-test.o print_char32.o error_count.o aux_expr_scaner.o char_conv.o char_trie.o
+LINKOBJ       = build/aux-scaner-test.o build/print_char32.o build/error_count.o build/aux_expr_scaner.o build/char_conv.o build/char_trie.o
 
 .PHONY: all all-before all-after clean clean-custom
 
