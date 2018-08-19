@@ -1,0 +1,24 @@
+[line: 1, pos: 5] lexeme: Begin_expression
+[line: 1, pos: 6] lexeme: End_expression
+[line: 1, pos: 7] lexeme: Opened_round_brack
+[line: 2, pos: 1] lexeme: Closed_round_brack
+[line: 3, pos: 1] lexeme: Kleene_closure
+[line: 5, pos: 10] lexeme: Optional_member
+[line: 5, pos: 11] lexeme: Or
+[line: 5, pos: 12] lexeme: Positive_closure
+[line: 6, pos: 1] lexeme: Character '0'
+[line: 6, pos: 1] lexeme: Character '1'
+[line: 6, pos: 1] lexeme: Character '2'
+[line: 6, pos: 1] lexeme: Character '3'
+[line: 6, pos: 1] lexeme: Character '4'
+[line: 6, pos: 1] lexeme: Character '5'
+[line: 6, pos: 1] lexeme: Character '6'
+[line: 6, pos: 1] lexeme: Character '7'
+[line: 8, pos: 1] lexeme: Character 'a'
+[line: 8, pos: 2] lexeme: Character 'b'
+[line: 8, pos: 2] lexeme: Character 'c'
+[line: 8, pos: 3] lexeme: Character 'd'
+[line: 8, pos: 4] lexeme: Character 'y'
+[line: 8, pos: 4] lexeme: Nothing
+
+Total errors 0
