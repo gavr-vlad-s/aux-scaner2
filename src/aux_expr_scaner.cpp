@@ -27,12 +27,16 @@ constexpr size_t size(const T (&array)[N]) noexcept
 }
 
 enum class Category : uint16_t{
-    Spaces, Other, Delimiters
+    Spaces,    Other,          Delimiters,
+    Backslash, After_backslash
 };
 
 static const Segment_with_value<char32_t, uint64_t> categories_table[] = {
-    {{U'\?'  , U'\?'  },  4    },  {{U'('   , U'+'   },  4    },
-    {{U'{'   , U'}'   },  4    },  {{U'\x01', U' '   },  1    }
+    {{U'\\'  , U'\\'  },  24   },  {{U'('   , U'+'   },  20   },
+    {{U'n'   , U'n'   },  16   },  {{U'\"'  , U'\"'  },  16   },
+    {{U'['   , U'['   },  16   },  {{U']'   , U'^'   },  16   },
+    {{U'{'   , U'}'   },  20   },  {{U'\x01', U' '   },  1    },
+    {{U'$'   , U'%'   },  16   },  {{U'\?'  , U'\?'  },  20   }
 };
 
 static constexpr size_t num_of_elems_in_categories_table = size(categories_table);
@@ -52,11 +56,11 @@ static inline uint64_t belongs(Category cat, uint64_t set_of_categories)
 }
 
 Aux_expr_scaner::Automaton_proc Aux_expr_scaner::procs_[] = {
-    &Aux_expr_scaner::start_proc
+    &Aux_expr_scaner::start_proc, &Aux_expr_scaner::backslash_proc
 };
 
 Aux_expr_scaner::Final_proc Aux_expr_scaner::finals_[] = {
-    &Aux_expr_scaner::none_final_proc
+    &Aux_expr_scaner::none_final_proc, &Aux_expr_scaner::backslash_final_proc
 };
 
 static Aux_expr_lexem_code char32_to_delimiter(char32_t ch)
@@ -112,8 +116,13 @@ bool Aux_expr_scaner::start_proc()
     lexeme_pos_.end_pos_   = loc_->pos_;
     if(belongs(Category::Delimiters, char_categories_)){
         token_.lexeme_.code_ = char32_to_delimiter(ch_);
-//         (loc_->pcurrent_char_)--;
         return false;
+    }
+    if(belongs(Category::Backslash, char_categories_)){
+        automaton_           = A_backslash;
+        token_.lexeme_.code_ = Aux_expr_lexem_code::Character;
+        token_.lexeme_.c_    = U'\\';
+        return true;
     }
     token_.lexeme_.code_ = Aux_expr_lexem_code::Character;
     token_.lexeme_.c_    = ch_;
@@ -286,20 +295,21 @@ ascaner::Token<Aux_expr_lexem_info> Aux_expr_scaner::current_lexeme()
 //     }
 //     return t;
 // }
-//
-// bool Aux_expr_scaner::char_proc()
-// {
-//     if(belongs(Category::After_backslash, char_categories_)){
-//         token_.lexeme_.c_ = (U'n' == ch_) ? U'\n' : ch_;
+
+bool Aux_expr_scaner::backslash_proc()
+{
+    if(belongs(Category::After_backslash, char_categories_)){
+        token_.lexeme_.c_ = (U'n' == ch_) ? U'\n' : ch_;
 //         (loc_->pcurrent_char_)++;
-//         lexeme_pos_.end_pos_.line_pos_++;
-//         (loc_->pos_.line_pos_)++;
-//     }else{
-//         token_.lexeme_.c_ = U'\\';
-//     }
-//     return false;
-// }
-//
+        lexeme_pos_.end_pos_.line_pos_++;
+        (loc_->pos_.line_pos_)++;
+    }else{
+        token_.lexeme_.c_ = U'\\';
+        (loc_->pcurrent_char_)--;
+    }
+    return false;
+}
+
 // bool Aux_expr_scaner::delimiter_proc()
 // {
 //     switch(ch_){
@@ -440,12 +450,12 @@ void Aux_expr_scaner::none_final_proc()
 //             correct_class();
 //     }
 // }
-//
-// void Aux_expr_scaner::char_final_proc()
-// {
-//     token_.lexeme_.c_ = U'\\';
-// }
-//
+
+void Aux_expr_scaner::backslash_final_proc()
+{
+    token_.lexeme_.c_ = U'\\';
+}
+
 // void Aux_expr_scaner::hat_final_proc()
 // {
 //     token_.lexeme_.code_ = Aux_expr_lexem_code::Character;
