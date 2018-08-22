@@ -15,10 +15,10 @@
 #include "../include/knuth_find.h"
 #include "../include/belongs.h"
 #include "../include/print_char32.h"
-// #include "../include/search_char.h"
-// #include "../include/get_init_state.h"
-// #include "../include/elem.h"
-// #include "../include/aux_expr_scaner_classes_table.h"
+#include "../include/search_char.h"
+#include "../include/get_init_state.h"
+#include "../include/elem.h"
+#include "../include/aux_expr_scaner_classes_table.h"
 
 template <class T, std::size_t N>
 constexpr size_t size(const T (&array)[N]) noexcept
@@ -27,14 +27,19 @@ constexpr size_t size(const T (&array)[N]) noexcept
 }
 
 enum class Category : uint16_t{
-    Spaces,    Other,           Delimiters,
-    Backslash, After_backslash, Opened_square_br
+    Spaces,     Other,           Delimiters,
+    Backslash,  After_backslash, Opened_square_br,
+    After_colon
 };
 
 static const Segment_with_value<char32_t, uint64_t> categories_table[] = {
-    {{U'\\'  , U'\\'  },  24   },  {{U'('   , U'+'   },  20   },
-    {{U'n'   , U'n'   },  16   },  {{U'\"'  , U'\"'  },  16   },
-    {{U'['   , U'['   },  48   },  {{U']'   , U'^'   },  16   },
+    {{U'b'   , U'b'   },  64   },  {{U'R'   , U'R'   },  64   },
+    {{U'o'   , U'o'   },  64   },  {{U'('   , U'+'   },  20   },
+    {{U'\\'  , U'\\'  },  24   },  {{U'l'   , U'l'   },  64   },
+    {{U'x'   , U'x'   },  64   },  {{U'\"'  , U'\"'  },  16   },
+    {{U'L'   , U'L'   },  64   },  {{U'['   , U'['   },  48   },
+    {{U']'   , U'^'   },  16   },  {{U'd'   , U'd'   },  64   },
+    {{U'n'   , U'n'   },  80   },  {{U'r'   , U'r'   },  64   },
     {{U'{'   , U'}'   },  20   },  {{U'\x01', U' '   },  1    },
     {{U'$'   , U'%'   },  16   },  {{U'\?'  , U'\?'  },  20   }
 };
@@ -249,29 +254,29 @@ ascaner::Token<Aux_expr_lexem_info> Aux_expr_scaner::current_lexeme()
 //     }
 //     return t;
 // }
-//
-// /* This array consists of pairs of the form (state, character) and is used to initialize
-//  * the character class processing automaton. The sense of the element of the array is this:
-//  * if the current character in the initialization state coincides with the second component
-//  * of the element, the work begins with the state that is the first component of the element.
-//  * Consider, for example, the element {54, U'n '}. If the current character coincides with
-//  * the second component of this element, then work begins with the state being the first
-//  * component, i.e. from state 54. The array must be sorted in ascending order of the
-//  * second component.*/
-// static const State_for_char init_table_for_classes[] = {
-//     {0,  U'L'}, {14, U'R'}, {23, U'b'}, {32, U'd'}, {40, U'l'},
-//     {54, U'n'}, {63, U'o'}, {72, U'r'}, {81, U'x'}
-// };
-//
-// static const char* expects_LRbdlnorx =
-//     "The line %zu expects one of the following characters: L, R, b, d, l, n, o, r, x.\n";
-//
+
+/* This array consists of pairs of the form (state, character) and is used to initialize
+ * the character class processing automaton. The sense of the element of the array is this:
+ * if the current character in the initialization state coincides with the second component
+ * of the element, the work begins with the state that is the first component of the element.
+ * Consider, for example, the element {54, U'n '}. If the current character coincides with
+ * the second component of this element, then work begins with the state being the first
+ * component, i.e. from state 54. The array must be sorted in ascending order of the
+ * second component.*/
+static const State_for_char init_table_for_classes[] = {
+    {0,  U'L'}, {14, U'R'}, {23, U'b'}, {32, U'd'}, {40, U'l'},
+    {54, U'n'}, {63, U'o'}, {72, U'r'}, {81, U'x'}
+};
+
+static const char* expects_LRbdlnorx =
+    "Error at line %zu. Expected one of the following characters: "
+    "L, R, b, d, l, n, o, r, x.\n";
+
 // static const char* latin_letter_expected =
 //     "A Latin letter or an underscore is expected at the line %zu.\n";
 
 bool Aux_expr_scaner::maybe_class_proc()
 {
-    bool t = false;
     switch(ch_){
         case U'^':
             token_.lexeme_.code_ = Aux_expr_lexem_code::Begin_char_class_complement;
@@ -283,58 +288,48 @@ bool Aux_expr_scaner::maybe_class_proc()
             lexeme_pos_.end_pos_.line_pos_++;
             (loc_->pos_.line_pos_)++;
             automaton_ = A_class;
+            state_     = -1;
             return true;
             break;
         default:
             (loc_->pcurrent_char_)--;
             return false;
     }
-//     switch(state_){
-//         case -1:
-//             if(U':' == ch_){
-//                 state_ = -2; t = true;
-//                 lexeme_pos_.end_pos_.line_pos_++;
-//                 (loc_->pos_.line_pos_)++;
-//             }else if(U'^' == ch_){
-//
-//                 (loc_->pcurrent_char_)++;
-//                 lexeme_pos_.end_pos_.line_pos_++;
-//                 (loc_->pos_.line_pos_)++;
-//             }
-//             break;
-//         case -2:
-//             if(belongs(Category::After_colon, char_categories_)){
-//                 state_               = get_init_state(ch_, init_table_for_classes,
-//                                                       size(init_table_for_classes));
-//                 token_.lexeme_.code_ = a_classes_jump_table[state_].code;
-//                 t = true;
-//             }else{
-//                 printf(expects_LRbdlnorx, loc_->pos_.line_no_);
-//                 en_ -> increment_number_of_errors();
-//             }
-//             break;
-//         default:
-//             auto elem            = a_classes_jump_table[state_];
-//             token_.lexeme_.code_ = elem.code;
-//             int y                = search_char(ch_, elem.symbols);
-//             if(y != THERE_IS_NO_CHAR){
-//                 state_ = elem.first_state + y; t = true;
-//                 lexeme_pos_.end_pos_.line_pos_++;
-//                 (loc_->pos_.line_pos_)++;
-//             }
-//     }
 }
 
 bool Aux_expr_scaner::class_proc()
 {
-    bool t = true;
+    bool t = false;
+    if(state_ != -1){
+        auto elem            = a_classes_jump_table[state_];
+        token_.lexeme_.code_ = elem.code_;
+        int y                = search_char(ch_, elem.symbols_);
+        if(y != THERE_IS_NO_CHAR){
+            state_ = elem.first_state_ + y; t = true;
+            lexeme_pos_.end_pos_.line_pos_++;
+            (loc_->pos_.line_pos_)++;
+        }else{
+            (loc_->pcurrent_char_)--;
+        }
+        return t;
+    }
+    if(belongs(Category::After_colon, char_categories_)){
+        state_               = get_init_state(ch_, init_table_for_classes,
+                                              size(init_table_for_classes));
+        token_.lexeme_.code_ = a_classes_jump_table[state_].code_;
+        t                    = true;
+        lexeme_pos_.end_pos_.line_pos_++;
+        (loc_->pos_.line_pos_)++;
+    }else{
+        printf(expects_LRbdlnorx, loc_->pos_.line_no_);
+        en_ -> increment_number_of_errors();
+    }
     return t;
 }
 bool Aux_expr_scaner::backslash_proc()
 {
     if(belongs(Category::After_backslash, char_categories_)){
         token_.lexeme_.c_ = (U'n' == ch_) ? U'\n' : ch_;
-//         (loc_->pcurrent_char_)++;
         lexeme_pos_.end_pos_.line_pos_++;
         (loc_->pos_.line_pos_)++;
     }else{
@@ -477,6 +472,8 @@ void Aux_expr_scaner::maybe_class_final_proc()
 
 void  Aux_expr_scaner::class_final_proc()
 {
+    token_.lexeme_.code_ = a_classes_jump_table[state_].code_;
+    correct_class();
 }
 
 void Aux_expr_scaner::backslash_final_proc()
@@ -489,10 +486,9 @@ void Aux_expr_scaner::backslash_final_proc()
 //     token_.lexeme_.code_ = Aux_expr_lexem_code::Character;
 //     token_.lexeme_.c_    = U'^';
 // }
-//
-/* Данный массив состоит из строковых литералов, представляющих собой заключённые
- * в кавычки идентификаторы из перечисления Lexem_code. Строки идут в том же
- * порядке, что и соответствующие идентификаторы перечисления Lexem_code. */
+
+/* This array consists of string literals, and these literals are
+ * quoted identifiers from the enumeration Lexem_code. */
 static const char* lexem_names[] = {
     "Nothing",         "UnknownLexem",                "Action",
     "Regexp_name",     "Opened_round_brack",          "Closed_round_brack",
