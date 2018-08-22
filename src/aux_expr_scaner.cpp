@@ -27,14 +27,14 @@ constexpr size_t size(const T (&array)[N]) noexcept
 }
 
 enum class Category : uint16_t{
-    Spaces,    Other,          Delimiters,
-    Backslash, After_backslash
+    Spaces,    Other,           Delimiters,
+    Backslash, After_backslash, Opened_square_br
 };
 
 static const Segment_with_value<char32_t, uint64_t> categories_table[] = {
     {{U'\\'  , U'\\'  },  24   },  {{U'('   , U'+'   },  20   },
     {{U'n'   , U'n'   },  16   },  {{U'\"'  , U'\"'  },  16   },
-    {{U'['   , U'['   },  16   },  {{U']'   , U'^'   },  16   },
+    {{U'['   , U'['   },  48   },  {{U']'   , U'^'   },  16   },
     {{U'{'   , U'}'   },  20   },  {{U'\x01', U' '   },  1    },
     {{U'$'   , U'%'   },  16   },  {{U'\?'  , U'\?'  },  20   }
 };
@@ -56,11 +56,13 @@ static inline uint64_t belongs(Category cat, uint64_t set_of_categories)
 }
 
 Aux_expr_scaner::Automaton_proc Aux_expr_scaner::procs_[] = {
-    &Aux_expr_scaner::start_proc, &Aux_expr_scaner::backslash_proc
+    &Aux_expr_scaner::start_proc,       &Aux_expr_scaner::backslash_proc,
+    &Aux_expr_scaner::maybe_class_proc, &Aux_expr_scaner::class_proc
 };
 
 Aux_expr_scaner::Final_proc Aux_expr_scaner::finals_[] = {
-    &Aux_expr_scaner::none_final_proc, &Aux_expr_scaner::backslash_final_proc
+    &Aux_expr_scaner::none_final_proc,        &Aux_expr_scaner::backslash_final_proc,
+    &Aux_expr_scaner::maybe_class_final_proc, &Aux_expr_scaner::class_final_proc
 };
 
 static Aux_expr_lexem_code char32_to_delimiter(char32_t ch)
@@ -114,6 +116,12 @@ bool Aux_expr_scaner::start_proc()
     }
     lexeme_pos_.begin_pos_ = loc_->pos_;
     lexeme_pos_.end_pos_   = loc_->pos_;
+    if(belongs(Category::Opened_square_br, char_categories_)){
+        automaton_           = A_maybe_class;
+        token_.lexeme_.code_ = Aux_expr_lexem_code::Character;
+        token_.lexeme_.c_    = U'[';
+        return true;
+    }
     if(belongs(Category::Delimiters, char_categories_)){
         token_.lexeme_.code_ = char32_to_delimiter(ch_);
         return false;
@@ -166,28 +174,28 @@ bool Aux_expr_scaner::start_proc()
 //     }
 }
 
-// static const char* class_strings[] = {
-//     "[:Latin:]",   "[:Letter:]",  "[:Russian:]",
-//     "[:bdigits:]", "[:digits:]",  "[:latin:]",
-//     "[:letter:]",  "[:odigits:]", "[:russian:]",
-//     "[:xdigits:]", "[:ndq:]",     "[:nsq:]"
-// };
-//
-// static const char* line_expects = "Line %zu expects %s.\n";
-//
-// void Aux_expr_scaner::correct_class()
-// {
-//     /* This function corrects the code of the token, most likely a character class,
-//      * and displays the necessary diagnostics. */
-//     if(token_.lexeme_.code_ >= Aux_expr_lexem_code::M_Class_Latin){
-//         int y = static_cast<int>(token_.lexeme_.code_) -
-//                 static_cast<int>(Aux_expr_lexem_code::M_Class_Latin);
-//         printf(line_expects, loc_->pos_.line_no_,class_strings[y]);
-//         token_.lexeme_.code_ = static_cast<Aux_expr_lexem_code>(y +
-//                                static_cast<int>(Aux_expr_lexem_code::Class_Latin));
-//         en_ -> increment_number_of_errors();
-//     }
-// }
+static const char* class_strings[] = {
+    "[:Latin:]",   "[:Letter:]",  "[:Russian:]",
+    "[:bdigits:]", "[:digits:]",  "[:latin:]",
+    "[:letter:]",  "[:odigits:]", "[:russian:]",
+    "[:xdigits:]", "[:ndq:]",     "[:nsq:]"
+};
+
+static const char* line_expects = "Error at line %zu: expected %s.\n";
+
+void Aux_expr_scaner::correct_class()
+{
+    /* This function corrects the code of the token, most likely a character class,
+     * and displays the necessary diagnostics. */
+    if(token_.lexeme_.code_ >= Aux_expr_lexem_code::M_Class_Latin){
+        int y = static_cast<int>(token_.lexeme_.code_) -
+                static_cast<int>(Aux_expr_lexem_code::M_Class_Latin);
+        printf(line_expects, loc_->pos_.line_no_, class_strings[y]);
+        token_.lexeme_.code_ = static_cast<Aux_expr_lexem_code>(y +
+                               static_cast<int>(Aux_expr_lexem_code::Class_Latin));
+        en_ -> increment_number_of_errors();
+    }
+}
 
 ascaner::Token<Aux_expr_lexem_info> Aux_expr_scaner::current_lexeme()
 {
@@ -200,7 +208,12 @@ ascaner::Token<Aux_expr_lexem_info> Aux_expr_scaner::current_lexeme()
         t = (this->*procs_[automaton_])();
         if(!t){
             token_.range_          = lexeme_pos_;
-//             Aux_expr_lexem_code lc = token_.lexeme_.code_;
+            Aux_expr_lexem_code lc = token_.lexeme_.code_;
+             if(A_class == automaton_){
+                /* If we have finished processing the class of characters, we need to
+                 * adjust its code, and, possibly, output diagnostics. */
+                correct_class();
+            }
 //             if(Aux_expr_lexem_code::Action == lc){
 //                 /* If the current lexeme is an identifier, then this identifier must be
 //                  * written to the identifier table. */
@@ -255,10 +268,27 @@ ascaner::Token<Aux_expr_lexem_info> Aux_expr_scaner::current_lexeme()
 //
 // static const char* latin_letter_expected =
 //     "A Latin letter or an underscore is expected at the line %zu.\n";
-//
-// bool Aux_expr_scaner::classes_proc()
-// {
-//     bool t = false;
+
+bool Aux_expr_scaner::maybe_class_proc()
+{
+    bool t = false;
+    switch(ch_){
+        case U'^':
+            token_.lexeme_.code_ = Aux_expr_lexem_code::Begin_char_class_complement;
+            lexeme_pos_.end_pos_.line_pos_++;
+            (loc_->pos_.line_pos_)++;
+            return false;
+            break;
+        case U':':
+            lexeme_pos_.end_pos_.line_pos_++;
+            (loc_->pos_.line_pos_)++;
+            automaton_ = A_class;
+            return true;
+            break;
+        default:
+            (loc_->pcurrent_char_)--;
+            return false;
+    }
 //     switch(state_){
 //         case -1:
 //             if(U':' == ch_){
@@ -266,7 +296,7 @@ ascaner::Token<Aux_expr_lexem_info> Aux_expr_scaner::current_lexeme()
 //                 lexeme_pos_.end_pos_.line_pos_++;
 //                 (loc_->pos_.line_pos_)++;
 //             }else if(U'^' == ch_){
-//                 token_.lexeme_.code_ = Aux_expr_lexem_code::Begin_char_class_complement;
+//
 //                 (loc_->pcurrent_char_)++;
 //                 lexeme_pos_.end_pos_.line_pos_++;
 //                 (loc_->pos_.line_pos_)++;
@@ -293,9 +323,13 @@ ascaner::Token<Aux_expr_lexem_info> Aux_expr_scaner::current_lexeme()
 //                 (loc_->pos_.line_pos_)++;
 //             }
 //     }
-//     return t;
-// }
+}
 
+bool Aux_expr_scaner::class_proc()
+{
+    bool t = true;
+    return t;
+}
 bool Aux_expr_scaner::backslash_proc()
 {
     if(belongs(Category::After_backslash, char_categories_)){
@@ -434,22 +468,16 @@ void Aux_expr_scaner::none_final_proc()
 // void Aux_expr_scaner::delimiter_final_proc()
 // {
 // }
-//
-// void Aux_expr_scaner::classes_final_proc()
-// {
-//     switch(state_){
-//         case -1:
-//             token_.lexeme_.code_ = Aux_expr_lexem_code::Character;
-//             token_.lexeme_.c_    = U'[';
-//             break;
-//         case -2:
-//             token_.lexeme_.code_ = Aux_expr_lexem_code::UnknownLexem;
-//             break;
-//         default:
-//             token_.lexeme_.code_ = a_classes_jump_table[state_].code;
-//             correct_class();
-//     }
-// }
+
+void Aux_expr_scaner::maybe_class_final_proc()
+{
+    token_.lexeme_.code_ = Aux_expr_lexem_code::Character;
+    token_.lexeme_.c_    = U'[';
+}
+
+void  Aux_expr_scaner::class_final_proc()
+{
+}
 
 void Aux_expr_scaner::backslash_final_proc()
 {
