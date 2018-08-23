@@ -37,6 +37,42 @@
 [line: 15, pos: 2] lexeme: Character 'c'
 [line: 15, pos: 3] lexeme: Character 'd'
 [line: 15, pos: 4] lexeme: Character 'y'
-[line: 15, pos: 4] lexeme: Nothing
+[line: 15, pos: 5] lexeme: Begin_char_class_complement
+[line: 15, pos: 8] lexeme: Character '^'
+[line: 15, pos: 9] lexeme: Character '['
+[line: 15, pos: 11] lexeme: Character ']'
+[line: 17, pos: 2] lexeme: Class_Latin
+[line: 17, pos: 11] lexeme: Or
+[line: 17, pos: 12] lexeme: Class_latin
+[line: 17, pos: 22] lexeme: Class_Russian
+[line: 17, pos: 34] lexeme: Class_russian
+[line: 17, pos: 46] lexeme: Class_bdigits
+[line: 18, pos: 9] lexeme: Class_odigits
+[line: 18, pos: 21] lexeme: Class_digits
+[line: 19, pos: 10] lexeme: Class_xdigits
+[line: 20, pos: 5] lexeme: Class_Letter
+[line: 20, pos: 21] lexeme: Class_letter
+[line: 21, pos: 9] lexeme: Class_nsq
+[line: 21, pos: 17] lexeme: Class_ndq
+[line: 24, pos: 13] lexeme: Character 'о'
+[line: 24, pos: 13] lexeme: Character 'д'
+[line: 24, pos: 13] lexeme: Character 'н'
+[line: 24, pos: 13] lexeme: Character 'а'
+[line: 24, pos: 13] lexeme: Character 'ж'
+[line: 24, pos: 13] lexeme: Character 'д'
+[line: 24, pos: 13] lexeme: Character 'ы'
+[line: 24, pos: 14] lexeme: Character 'р'
+[line: 24, pos: 14] lexeme: Character 'а'
+[line: 24, pos: 14] lexeme: Character 'н'
+[line: 24, pos: 14] lexeme: Character 'н'
+[line: 24, pos: 14] lexeme: Character 'и'
+[line: 24, pos: 14] lexeme: Character 'м'
+[line: 24, pos: 15] lexeme: Character 'у'
+[line: 24, pos: 15] lexeme: Character 'т'
+[line: 24, pos: 15] lexeme: Character 'р'
+[line: 24, pos: 15] lexeme: Character 'о'
+[line: 24, pos: 15] lexeme: Character 'м'
+[line: 25, pos: 6] lexeme: End_char_class_complement
+[line: 25, pos: 6] lexeme: Nothing
 
 Total errors 0

@@ -7,7 +7,7 @@
              gavvs1977@yandex.ru
 */
 
-// #include <cstdio>
+#include <cstdio>
 #include <cstdint>
 #include <cstddef>
 #include "../include/aux_expr_scaner.h"
@@ -27,21 +27,22 @@ constexpr size_t size(const T (&array)[N]) noexcept
 }
 
 enum class Category : uint16_t{
-    Spaces,     Other,           Delimiters,
-    Backslash,  After_backslash, Opened_square_br,
-    After_colon
+    Spaces,      Other,           Delimiters,
+    Backslash,   After_backslash, Opened_square_br,
+    After_colon, Hat
 };
 
 static const Segment_with_value<char32_t, uint64_t> categories_table[] = {
-    {{U'b'   , U'b'   },  64   },  {{U'R'   , U'R'   },  64   },
+    {{U'b'   , U'b'   },  64   },  {{U'['   , U'['   },  48   },
     {{U'o'   , U'o'   },  64   },  {{U'('   , U'+'   },  20   },
-    {{U'\\'  , U'\\'  },  24   },  {{U'l'   , U'l'   },  64   },
+    {{U']'   , U']'   },  16   },  {{U'l'   , U'l'   },  64   },
     {{U'x'   , U'x'   },  64   },  {{U'\"'  , U'\"'  },  16   },
-    {{U'L'   , U'L'   },  64   },  {{U'['   , U'['   },  48   },
-    {{U']'   , U'^'   },  16   },  {{U'd'   , U'd'   },  64   },
+    {{U'L'   , U'L'   },  64   },  {{U'\\'  , U'\\'  },  24   },
+    {{U'^'   , U'^'   },  144  },  {{U'd'   , U'd'   },  64   },
     {{U'n'   , U'n'   },  80   },  {{U'r'   , U'r'   },  64   },
     {{U'{'   , U'}'   },  20   },  {{U'\x01', U' '   },  1    },
-    {{U'$'   , U'%'   },  16   },  {{U'\?'  , U'\?'  },  20   }
+    {{U'$'   , U'%'   },  16   },  {{U'\?'  , U'\?'  },  20   },
+    {{U'R'   , U'R'   },  64   }
 };
 
 static constexpr size_t num_of_elems_in_categories_table = size(categories_table);
@@ -62,12 +63,14 @@ static inline uint64_t belongs(Category cat, uint64_t set_of_categories)
 
 Aux_expr_scaner::Automaton_proc Aux_expr_scaner::procs_[] = {
     &Aux_expr_scaner::start_proc,       &Aux_expr_scaner::backslash_proc,
-    &Aux_expr_scaner::maybe_class_proc, &Aux_expr_scaner::class_proc
+    &Aux_expr_scaner::maybe_class_proc, &Aux_expr_scaner::class_proc,
+    &Aux_expr_scaner::hat_proc
 };
 
 Aux_expr_scaner::Final_proc Aux_expr_scaner::finals_[] = {
     &Aux_expr_scaner::none_final_proc,        &Aux_expr_scaner::backslash_final_proc,
-    &Aux_expr_scaner::maybe_class_final_proc, &Aux_expr_scaner::class_final_proc
+    &Aux_expr_scaner::maybe_class_final_proc, &Aux_expr_scaner::class_final_proc,
+    &Aux_expr_scaner::hat_final_proc
 };
 
 static Aux_expr_lexem_code char32_to_delimiter(char32_t ch)
@@ -125,6 +128,12 @@ bool Aux_expr_scaner::start_proc()
         automaton_           = A_maybe_class;
         token_.lexeme_.code_ = Aux_expr_lexem_code::Character;
         token_.lexeme_.c_    = U'[';
+        return true;
+    }
+    if(belongs(Category::Hat, char_categories_)){
+        automaton_           = A_hat;
+        token_.lexeme_.code_ = Aux_expr_lexem_code::Character;
+        token_.lexeme_.c_    = U'^';
         return true;
     }
     if(belongs(Category::Delimiters, char_categories_)){
@@ -419,18 +428,19 @@ bool Aux_expr_scaner::backslash_proc()
 //     }
 //     return t;
 // }
-//
-// bool Aux_expr_scaner::hat_proc()
-// {
-//     bool t = false;
-//     if(ch_ == U']'){
-//         token_.lexeme_.code_ = Aux_expr_lexem_code::End_char_class_complement;
-//         (loc_->pcurrent_char_)++;
-//         lexeme_pos_.end_pos_.line_pos_++;
-//         (loc_->pos_.line_pos_)++;
-//     }
-//     return t;
-// }
+
+bool Aux_expr_scaner::hat_proc()
+{
+    bool t = false;
+    if(ch_ == U']'){
+        token_.lexeme_.code_ = Aux_expr_lexem_code::End_char_class_complement;
+        lexeme_pos_.end_pos_.line_pos_++;
+        (loc_->pos_.line_pos_)++;
+    }else{
+        (loc_->pcurrent_char_)--;
+    }
+    return t;
+}
 
 void Aux_expr_scaner::none_final_proc()
 {
@@ -481,11 +491,11 @@ void Aux_expr_scaner::backslash_final_proc()
     token_.lexeme_.c_ = U'\\';
 }
 
-// void Aux_expr_scaner::hat_final_proc()
-// {
-//     token_.lexeme_.code_ = Aux_expr_lexem_code::Character;
-//     token_.lexeme_.c_    = U'^';
-// }
+void Aux_expr_scaner::hat_final_proc()
+{
+    token_.lexeme_.code_ = Aux_expr_lexem_code::Character;
+    token_.lexeme_.c_    = U'^';
+}
 
 /* This array consists of string literals, and these literals are
  * quoted identifiers from the enumeration Lexem_code. */
