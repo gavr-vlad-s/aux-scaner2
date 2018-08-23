@@ -31,7 +31,7 @@ enum class Category : uint16_t{
     Spaces,      Other,           Delimiters,
     Backslash,   After_backslash, Opened_square_br,
     After_colon, Hat,             Dollar,
-    Id_begin,    Id_body
+    Id_begin,    Id_body,         Percent
 };
 
 static const Segment_with_value<char32_t, uint64_t> categories_table[] = {
@@ -43,7 +43,7 @@ static const Segment_with_value<char32_t, uint64_t> categories_table[] = {
     {{U']'   , U']'   },  16   },  {{U'b'   , U'b'   },  1600 },
     {{U'l'   , U'l'   },  1600 },  {{U'p'   , U'q'   },  1536 },
     {{U'y'   , U'z'   },  1536 },  {{U'\"'  , U'\"'  },  16   },
-    {{U'%'   , U'%'   },  16   },  {{U'0'   , U'9'   },  1024 },
+    {{U'%'   , U'%'   },  2064 },  {{U'0'   , U'9'   },  1024 },
     {{U'A'   , U'K'   },  1536 },  {{U'M'   , U'Q'   },  1536 },
     {{U'S'   , U'Z'   },  1536 },  {{U'\\'  , U'\\'  },  24   },
     {{U'^'   , U'^'   },  144  },  {{U'a'   , U'a'   },  1536 },
@@ -72,13 +72,15 @@ static inline uint64_t belongs(Category cat, uint64_t set_of_categories)
 Aux_expr_scaner::Automaton_proc Aux_expr_scaner::procs_[] = {
     &Aux_expr_scaner::start_proc,       &Aux_expr_scaner::backslash_proc,
     &Aux_expr_scaner::maybe_class_proc, &Aux_expr_scaner::class_proc,
-    &Aux_expr_scaner::hat_proc,         &Aux_expr_scaner::action_proc
+    &Aux_expr_scaner::hat_proc,         &Aux_expr_scaner::action_proc,
+    &Aux_expr_scaner::regexp_name_proc
 };
 
 Aux_expr_scaner::Final_proc Aux_expr_scaner::finals_[] = {
     &Aux_expr_scaner::none_final_proc,        &Aux_expr_scaner::backslash_final_proc,
     &Aux_expr_scaner::maybe_class_final_proc, &Aux_expr_scaner::class_final_proc,
-    &Aux_expr_scaner::hat_final_proc,         &Aux_expr_scaner::action_final_proc
+    &Aux_expr_scaner::hat_final_proc,         &Aux_expr_scaner::action_final_proc,
+    &Aux_expr_scaner::regexp_name_final_proc
 };
 
 static Aux_expr_lexem_code char32_to_delimiter(char32_t ch)
@@ -150,6 +152,12 @@ bool Aux_expr_scaner::start_proc()
         buffer_.clear();
         return true;
     }
+    if(belongs(Category::Percent, char_categories_)){
+        automaton_           = A_regexp_name;
+        token_.lexeme_.code_ = Aux_expr_lexem_code::Regexp_name;
+        buffer_.clear();
+        return true;
+    }
     if(belongs(Category::Delimiters, char_categories_)){
         token_.lexeme_.code_ = char32_to_delimiter(ch_);
         return false;
@@ -163,43 +171,6 @@ bool Aux_expr_scaner::start_proc()
     token_.lexeme_.code_ = Aux_expr_lexem_code::Character;
     token_.lexeme_.c_    = ch_;
     return false;
-//     if(belongs(Category::Begin_expr, char_categories_)){
-//         token_.lexeme_.code_ = Aux_expr_lexem_code::Begin_expression;
-//         t                    = false;
-//         (loc_->pcurrent_char_)++;
-//     }else if(belongs(Category::Delimiters, char_categories_)){
-//         automaton_           = A_delimiter;
-//         token_.lexeme_.code_ = Aux_expr_lexem_code::UnknownLexem;
-//         (loc_->pcurrent_char_)--;
-//     }else if(belongs(Category::Dollar, char_categories_)){
-//         automaton_           = A_action;
-//         token_.lexeme_.code_ = Aux_expr_lexem_code::Action;
-//         buffer_.clear();
-//     }else if(belongs(Category::Opened_square_br, char_categories_)){
-//         automaton_           = A_class,
-//         token_.lexeme_.code_ = Aux_expr_lexem_code::Character;
-//         token_.lexeme_.c_    = U'[';
-//     }else if(belongs(Category::Backslash, char_categories_)){
-//         automaton_           = A_char;
-//         token_.lexeme_.code_ = Aux_expr_lexem_code::Character;
-//     }else if(belongs(Category::End_expr, char_categories_)){
-//         token_.lexeme_.code_ = Aux_expr_lexem_code::End_expression;
-//         t                    = false;
-//         (loc_->pcurrent_char_)++;
-//     }else if(belongs(Category::Hat, char_categories_)){
-//         automaton_           = A_hat,
-//         token_.lexeme_.code_ = Aux_expr_lexem_code::Character;
-//         token_.lexeme_.c_    = U'^';
-//     }else if(belongs(Category::Percent, char_categories_)){
-//         automaton_           = A_regexp_name;
-//         token_.lexeme_.code_ = Aux_expr_lexem_code::Regexp_name;
-//         buffer_.clear();
-//     }else{
-//         token_.lexeme_.code_ = Aux_expr_lexem_code::Character;
-//         token_.lexeme_.c_    = ch_;
-//         t                    = false;
-//         (loc_->pcurrent_char_)++;
-//     }
 }
 
 static const char* class_strings[] = {
@@ -245,14 +216,11 @@ ascaner::Token<Aux_expr_lexem_info> Aux_expr_scaner::current_lexeme()
                 /* If the current lexeme is an identifier, then this identifier must be
                  * written to the identifier table. */
                 token_.lexeme_.action_name_index_ = ids_ -> insert(buffer_);
+            } if(Aux_expr_lexem_code::Regexp_name == lc){
+                /* If the current lexeme is a regexp name, then this identifier must be
+                 * written to the identifier table. */
+                token_.lexeme_.regexp_name_index_ = ids_ -> insert(buffer_);
             }
-//             }else if(A_class == automaton_){
-//                 /* If we have finished processing the class of characters, we need to
-//                  * adjust its code, and, possibly, output diagnostics. */
-//                 correct_class();
-//             }else if(Aux_expr_lexem_code::Regexp_name == lc){
-//                 token_.lexeme_.regexp_name_index_ = ids_ -> insert(buffer_);
-//             }
             return token_;
         }
     }
@@ -267,16 +235,6 @@ ascaner::Token<Aux_expr_lexem_info> Aux_expr_scaner::current_lexeme()
     (this->*finals_[automaton_])();
     return token_;
 }
-
-// bool Aux_expr_scaner::unknown_proc()
-// {
-//     bool t =  belongs(Category::Other, char_categories_);
-//     if(t){
-//         lexeme_pos_.end_pos_.line_pos_++;
-//         (loc_->pos_.line_pos_)++;
-//     }
-//     return t;
-// }
 
 /* This array consists of pairs of the form (state, character) and is used to initialize
  * the character class processing automaton. The sense of the element of the array is this:
@@ -349,6 +307,7 @@ bool Aux_expr_scaner::class_proc()
     }
     return t;
 }
+
 bool Aux_expr_scaner::backslash_proc()
 {
     if(belongs(Category::After_backslash, char_categories_)){
@@ -361,39 +320,6 @@ bool Aux_expr_scaner::backslash_proc()
     }
     return false;
 }
-
-// bool Aux_expr_scaner::delimiter_proc()
-// {
-//     switch(ch_){
-//         case U'{':
-//             token_.lexeme_.code_ = Aux_expr_lexem_code::Begin_expression;
-//             break;
-//         case U'}':
-//             token_.lexeme_.code_ = Aux_expr_lexem_code::End_expression;
-//             break;
-//         case U'(':
-//             token_.lexeme_.code_ = Aux_expr_lexem_code::Opened_round_brack;
-//             break;
-//         case U')':
-//             token_.lexeme_.code_ = Aux_expr_lexem_code::Closed_round_brack;
-//             break;
-//         case U'|':
-//             token_.lexeme_.code_ = Aux_expr_lexem_code::Or;
-//             break;
-//         case U'*':
-//             token_.lexeme_.code_ = Aux_expr_lexem_code::Kleene_closure;
-//             break;
-//         case U'+':
-//             token_.lexeme_.code_ = Aux_expr_lexem_code::Positive_closure;
-//             break;
-//         case U'?':
-//             token_.lexeme_.code_ = Aux_expr_lexem_code::Optional_member;
-//             break;
-//     }
-//     (loc_->pcurrent_char_)++;
-//     bool t = false;
-//     return t;
-// }
 
 bool Aux_expr_scaner::action_proc()
 {
@@ -426,29 +352,36 @@ bool Aux_expr_scaner::action_proc()
     return t;
 }
 
-// bool Aux_expr_scaner::regexp_name_proc()
-// {
-//     bool t = true;
-//     /* The variable t is true if the regexp name has not yet
-//      * been fully read, and false otherwise. */
-//     if(-1 == state_){
-//         if(belongs(Category::Regexp_name_begin, char_categories_)){
-//             buffer_ += ch_; state_ = 0;
-//         }else{
-//             printf(latin_letter_expected, loc_->pos_.line_no_);
-//             en_ -> increment_number_of_errors();
-//             t = false;
-//         }
-//         return t;
-//     }
-//     t = belongs(Category::Regexp_name_body, char_categories_);
-//     if(t){
-//         buffer_ += ch_;
-//         lexeme_pos_.end_pos_.line_pos_++;
-//         (loc_->pos_.line_pos_)++;
-//     }
-//     return t;
-// }
+bool Aux_expr_scaner::regexp_name_proc()
+{
+    bool t = true;
+    /* The variable t is true if the regexp name has not yet
+     * been fully read, and false otherwise. */
+    if(-1 == state_){
+        if(belongs(Category::Id_begin, char_categories_)){
+            buffer_ += ch_; state_ = 0;
+            lexeme_pos_.end_pos_.line_pos_++;
+            (loc_->pos_.line_pos_)++;
+        }else{
+            token_.lexeme_.code_ = Aux_expr_lexem_code::Character;
+            token_.lexeme_.c_    = U'%';
+            printf(latin_letter_expected, loc_->pos_.line_no_);
+            en_ -> increment_number_of_errors();
+            t                    = false;
+            (loc_->pcurrent_char_)--;
+        }
+        return t;
+    }
+    t = belongs(Category::Id_body, char_categories_);
+    if(t){
+        buffer_ += ch_;
+        lexeme_pos_.end_pos_.line_pos_++;
+        (loc_->pos_.line_pos_)++;
+    }else{
+        (loc_->pcurrent_char_)--;
+    }
+    return t;
+}
 
 bool Aux_expr_scaner::hat_proc()
 {
@@ -469,12 +402,6 @@ void Aux_expr_scaner::none_final_proc()
      * to be in the A_start automaton. Then you do not need to do anything. */
 }
 
-// void Aux_expr_scaner::unknown_final_proc()
-// {
-//     /* This subroutine will be called if, after reading the input text, it turned out
-//      * to be in the A_unknown automaton. Then you do not need to do anything. */
-// }
-
 void Aux_expr_scaner::action_final_proc()
 {
     /* This function will be called if, after reading the input stream, they were
@@ -483,17 +410,13 @@ void Aux_expr_scaner::action_final_proc()
     token_.lexeme_.action_name_index_ = ids_ -> insert(buffer_);
 }
 
-// void Aux_expr_scaner::regexp_name_final_proc()
-// {
-//     /* This function will be called if, after reading the input stream, they were
-//      * in the action names processing automaton, the A_action automaton. Then this
-//      * name should be written in the prefix tree of identifiers. */
-//     token_.lexeme_.regexp_name_index_ = ids_ -> insert(buffer_);
-// }
-//
-// void Aux_expr_scaner::delimiter_final_proc()
-// {
-// }
+void Aux_expr_scaner::regexp_name_final_proc()
+{
+    /* This function will be called if, after reading the input stream, they were
+     * in the action names processing automaton, the A_action automaton. Then this
+     * name should be written in the prefix tree of identifiers. */
+    token_.lexeme_.regexp_name_index_ = ids_ -> insert(buffer_);
+}
 
 void Aux_expr_scaner::maybe_class_final_proc()
 {
@@ -541,12 +464,22 @@ std::string Aux_expr_scaner::lexeme_to_string(const Aux_expr_lexem_info li)
     std::string         result;
     Aux_expr_lexem_code lc    = li.code_;
     result                    = lexem_names[static_cast<uint16_t>(lc)];
-    if(Aux_expr_lexem_code::Character == lc){
-        result += " " + show_char32(li.c_);
-    }else if(Aux_expr_lexem_code::Action == lc){
-        result += " [index: " + std::to_string(li.action_name_index_)      +
-                  ", name: "  + idx_to_string(ids_, li.action_name_index_) +
-                  "]";
+    switch(lc){
+        case Aux_expr_lexem_code::Character:
+            result += " " + show_char32(li.c_);
+            break;
+        case Aux_expr_lexem_code::Action:
+            result += " [index: " + std::to_string(li.action_name_index_)      +
+                      ", name: "  + idx_to_string(ids_, li.action_name_index_) +
+                      "]";
+            break;
+        case Aux_expr_lexem_code::Regexp_name:
+            result += " [index: " + std::to_string(li.regexp_name_index_)      +
+                      ", name: "  + idx_to_string(ids_, li.regexp_name_index_) +
+                      "]";
+            break;
+        default:
+            ;
     }
     return result;
 }
