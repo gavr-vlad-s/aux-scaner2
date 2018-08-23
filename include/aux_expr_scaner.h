@@ -29,7 +29,7 @@ public:
 private:
     enum Automaton_name{
         A_start, A_backslash, A_maybe_class, A_class,
-        A_hat
+        A_hat,   A_action
     };
     Automaton_name automaton_; /* current automaton */
 
@@ -48,11 +48,11 @@ private:
     /* functions for handling lexems: */
     bool start_proc();       bool backslash_proc();
     bool maybe_class_proc(); bool class_proc();
-    bool hat_proc();
+    bool hat_proc();         bool action_proc();
     /* functions to perform actions in case of unexpected end of lexem */
     void none_final_proc();         void backslash_final_proc();
     void maybe_class_final_proc();  void class_final_proc();
-    void hat_final_proc();
+    void hat_final_proc();          void action_final_proc();
     /* If the lexem most likely is character class, then the following
      * function corrects lexem code, and displays the needed diagnostic
      * messsage. */

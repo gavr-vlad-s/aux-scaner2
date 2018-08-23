@@ -19,6 +19,7 @@
 #include "../include/get_init_state.h"
 #include "../include/elem.h"
 #include "../include/aux_expr_scaner_classes_table.h"
+#include "../include/idx_to_string.h"
 
 template <class T, std::size_t N>
 constexpr size_t size(const T (&array)[N]) noexcept
@@ -29,20 +30,27 @@ constexpr size_t size(const T (&array)[N]) noexcept
 enum class Category : uint16_t{
     Spaces,      Other,           Delimiters,
     Backslash,   After_backslash, Opened_square_br,
-    After_colon, Hat
+    After_colon, Hat,             Dollar,
+    Id_begin,    Id_body
 };
 
 static const Segment_with_value<char32_t, uint64_t> categories_table[] = {
-    {{U'b'   , U'b'   },  64   },  {{U'['   , U'['   },  48   },
-    {{U'o'   , U'o'   },  64   },  {{U'('   , U'+'   },  20   },
-    {{U']'   , U']'   },  16   },  {{U'l'   , U'l'   },  64   },
-    {{U'x'   , U'x'   },  64   },  {{U'\"'  , U'\"'  },  16   },
-    {{U'L'   , U'L'   },  64   },  {{U'\\'  , U'\\'  },  24   },
-    {{U'^'   , U'^'   },  144  },  {{U'd'   , U'd'   },  64   },
-    {{U'n'   , U'n'   },  80   },  {{U'r'   , U'r'   },  64   },
-    {{U'{'   , U'}'   },  20   },  {{U'\x01', U' '   },  1    },
-    {{U'$'   , U'%'   },  16   },  {{U'\?'  , U'\?'  },  20   },
-    {{U'R'   , U'R'   },  64   }
+    {{U'_'   , U'_'   },  1536 },  {{U'L'   , U'L'   },  1600 },
+    {{U'n'   , U'n'   },  1616 },  {{U'('   , U'+'   },  20   },
+    {{U'['   , U'['   },  48   },  {{U'd'   , U'd'   },  1600 },
+    {{U's'   , U'w'   },  1536 },  {{U'$'   , U'$'   },  272  },
+    {{U'\?'  , U'\?'  },  20   },  {{U'R'   , U'R'   },  1600 },
+    {{U']'   , U']'   },  16   },  {{U'b'   , U'b'   },  1600 },
+    {{U'l'   , U'l'   },  1600 },  {{U'p'   , U'q'   },  1536 },
+    {{U'y'   , U'z'   },  1536 },  {{U'\"'  , U'\"'  },  16   },
+    {{U'%'   , U'%'   },  16   },  {{U'0'   , U'9'   },  1024 },
+    {{U'A'   , U'K'   },  1536 },  {{U'M'   , U'Q'   },  1536 },
+    {{U'S'   , U'Z'   },  1536 },  {{U'\\'  , U'\\'  },  24   },
+    {{U'^'   , U'^'   },  144  },  {{U'a'   , U'a'   },  1536 },
+    {{U'c'   , U'c'   },  1536 },  {{U'e'   , U'k'   },  1536 },
+    {{U'm'   , U'm'   },  1536 },  {{U'o'   , U'o'   },  1600 },
+    {{U'r'   , U'r'   },  1600 },  {{U'x'   , U'x'   },  1600 },
+    {{U'{'   , U'}'   },  20   },  {{U'\x01', U' '   },  1    }
 };
 
 static constexpr size_t num_of_elems_in_categories_table = size(categories_table);
@@ -64,13 +72,13 @@ static inline uint64_t belongs(Category cat, uint64_t set_of_categories)
 Aux_expr_scaner::Automaton_proc Aux_expr_scaner::procs_[] = {
     &Aux_expr_scaner::start_proc,       &Aux_expr_scaner::backslash_proc,
     &Aux_expr_scaner::maybe_class_proc, &Aux_expr_scaner::class_proc,
-    &Aux_expr_scaner::hat_proc
+    &Aux_expr_scaner::hat_proc,         &Aux_expr_scaner::action_proc
 };
 
 Aux_expr_scaner::Final_proc Aux_expr_scaner::finals_[] = {
     &Aux_expr_scaner::none_final_proc,        &Aux_expr_scaner::backslash_final_proc,
     &Aux_expr_scaner::maybe_class_final_proc, &Aux_expr_scaner::class_final_proc,
-    &Aux_expr_scaner::hat_final_proc
+    &Aux_expr_scaner::hat_final_proc,         &Aux_expr_scaner::action_final_proc
 };
 
 static Aux_expr_lexem_code char32_to_delimiter(char32_t ch)
@@ -134,6 +142,12 @@ bool Aux_expr_scaner::start_proc()
         automaton_           = A_hat;
         token_.lexeme_.code_ = Aux_expr_lexem_code::Character;
         token_.lexeme_.c_    = U'^';
+        return true;
+    }
+    if(belongs(Category::Dollar, char_categories_)){
+        automaton_           = A_action;
+        token_.lexeme_.code_ = Aux_expr_lexem_code::Action;
+        buffer_.clear();
         return true;
     }
     if(belongs(Category::Delimiters, char_categories_)){
@@ -227,11 +241,11 @@ ascaner::Token<Aux_expr_lexem_info> Aux_expr_scaner::current_lexeme()
                 /* If we have finished processing the class of characters, we need to
                  * adjust its code, and, possibly, output diagnostics. */
                 correct_class();
+            }else if(Aux_expr_lexem_code::Action == lc){
+                /* If the current lexeme is an identifier, then this identifier must be
+                 * written to the identifier table. */
+                token_.lexeme_.action_name_index_ = ids_ -> insert(buffer_);
             }
-//             if(Aux_expr_lexem_code::Action == lc){
-//                 /* If the current lexeme is an identifier, then this identifier must be
-//                  * written to the identifier table. */
-//                 token_.lexeme_.action_name_index_ = ids_ -> insert(buffer_);
 //             }else if(A_class == automaton_){
 //                 /* If we have finished processing the class of characters, we need to
 //                  * adjust its code, and, possibly, output diagnostics. */
@@ -281,8 +295,8 @@ static const char* expects_LRbdlnorx =
     "Error at line %zu. Expected one of the following characters: "
     "L, R, b, d, l, n, o, r, x.\n";
 
-// static const char* latin_letter_expected =
-//     "A Latin letter or an underscore is expected at the line %zu.\n";
+static const char* latin_letter_expected =
+    "A Latin letter or an underscore is expected at the line %zu.\n";
 
 bool Aux_expr_scaner::maybe_class_proc()
 {
@@ -380,31 +394,38 @@ bool Aux_expr_scaner::backslash_proc()
 //     bool t = false;
 //     return t;
 // }
-//
-// bool Aux_expr_scaner::action_proc()
-// {
-//     bool t = true;
-//     /* The variable t is true if the action name has not yet
-//      * been fully read, and false otherwise. */
-//     if(-1 == state_){
-//         if(belongs(Category::Action_name_begin, char_categories_)){
-//             buffer_ += ch_; state_ = 0;
-//         }else{
-//             printf(latin_letter_expected, loc_->pos_.line_no_);
-//             en_ -> increment_number_of_errors();
-//             t = false;
-//         }
-//         return t;
-//     }
-//     t = belongs(Category::Action_name_body, char_categories_);
-//     if(t){
-//         buffer_ += ch_;
-//         lexeme_pos_.end_pos_.line_pos_++;
-//         (loc_->pos_.line_pos_)++;
-//     }
-//     return t;
-// }
-//
+
+bool Aux_expr_scaner::action_proc()
+{
+    bool t = true;
+    /* The variable t is true if the action name has not yet
+     * been fully read, and false otherwise. */
+    if(-1 == state_){
+        if(belongs(Category::Id_begin, char_categories_)){
+            buffer_ += ch_; state_ = 0;
+            lexeme_pos_.end_pos_.line_pos_++;
+            (loc_->pos_.line_pos_)++;
+        }else{
+            token_.lexeme_.code_ = Aux_expr_lexem_code::Character;
+            token_.lexeme_.c_    = U'$';
+            printf(latin_letter_expected, loc_->pos_.line_no_);
+            en_ -> increment_number_of_errors();
+            t                    = false;
+            (loc_->pcurrent_char_)--;
+        }
+        return t;
+    }
+    t = belongs(Category::Id_body, char_categories_);
+    if(t){
+        buffer_ += ch_;
+        lexeme_pos_.end_pos_.line_pos_++;
+        (loc_->pos_.line_pos_)++;
+    }else{
+        (loc_->pcurrent_char_)--;
+    }
+    return t;
+}
+
 // bool Aux_expr_scaner::regexp_name_proc()
 // {
 //     bool t = true;
@@ -453,15 +474,15 @@ void Aux_expr_scaner::none_final_proc()
 //     /* This subroutine will be called if, after reading the input text, it turned out
 //      * to be in the A_unknown automaton. Then you do not need to do anything. */
 // }
-//
-// void Aux_expr_scaner::action_final_proc()
-// {
-//     /* This function will be called if, after reading the input stream, they were
-//      * in the action names processing automaton, the A_action automaton. Then this
-//      * name should be written in the prefix tree of identifiers. */
-//     token_.lexeme_.action_name_index_ = ids_ -> insert(buffer_);
-// }
-//
+
+void Aux_expr_scaner::action_final_proc()
+{
+    /* This function will be called if, after reading the input stream, they were
+     * in the action names processing automaton, the A_action automaton. Then this
+     * name should be written in the prefix tree of identifiers. */
+    token_.lexeme_.action_name_index_ = ids_ -> insert(buffer_);
+}
+
 // void Aux_expr_scaner::regexp_name_final_proc()
 // {
 //     /* This function will be called if, after reading the input stream, they were
@@ -522,6 +543,10 @@ std::string Aux_expr_scaner::lexeme_to_string(const Aux_expr_lexem_info li)
     result                    = lexem_names[static_cast<uint16_t>(lc)];
     if(Aux_expr_lexem_code::Character == lc){
         result += " " + show_char32(li.c_);
+    }else if(Aux_expr_lexem_code::Action == lc){
+        result += " [index: " + std::to_string(li.action_name_index_)      +
+                  ", name: "  + idx_to_string(ids_, li.action_name_index_) +
+                  "]";
     }
     return result;
 }
