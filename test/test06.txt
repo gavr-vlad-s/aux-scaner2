@@ -23,9 +23,9 @@ a bc d y [^  ^ [  ]
 
             однажды ранним утром
         $write
-     ^]
+     ^] _ efs g
 
      $add_dec_digit0  %octal_code
-  %decimal_code
-    %quoted_string
-            %integer
+  %decimal_code  %float
+    %quoted_string %sdc
+            %integer %int_part %www

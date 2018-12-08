@@ -160,6 +160,7 @@ bool Aux_expr_scaner::start_proc()
     }
     if(belongs(Category::Delimiters, char_categories_)){
         token_.lexeme_.code_ = char32_to_delimiter(ch_);
+        (loc_->pos_.line_pos_)++;
         return false;
     }
     if(belongs(Category::Backslash, char_categories_)){
@@ -170,6 +171,7 @@ bool Aux_expr_scaner::start_proc()
     }
     token_.lexeme_.code_ = Aux_expr_lexem_code::Character;
     token_.lexeme_.c_    = ch_;
+    (loc_->pos_.line_pos_)++;
     return false;
 }
 
@@ -273,6 +275,7 @@ bool Aux_expr_scaner::maybe_class_proc()
             return true;
             break;
         default:
+            (loc_->pos_.line_pos_)++;
             (loc_->pcurrent_char_)--;
             return false;
     }
@@ -290,6 +293,7 @@ bool Aux_expr_scaner::class_proc()
             lexeme_pos_.end_pos_.line_pos_++;
             (loc_->pos_.line_pos_)++;
         }else{
+            (loc_->pos_.line_pos_)++;
             (loc_->pcurrent_char_)--;
         }
         return t;
@@ -313,9 +317,10 @@ bool Aux_expr_scaner::backslash_proc()
     if(belongs(Category::After_backslash, char_categories_)){
         token_.lexeme_.c_ = (U'n' == ch_) ? U'\n' : ch_;
         lexeme_pos_.end_pos_.line_pos_++;
-        (loc_->pos_.line_pos_)++;
+        (loc_->pos_.line_pos_) += 2;
     }else{
         token_.lexeme_.c_ = U'\\';
+        (loc_->pos_.line_pos_)++;
         (loc_->pcurrent_char_)--;
     }
     return false;
@@ -347,6 +352,7 @@ bool Aux_expr_scaner::action_proc()
         lexeme_pos_.end_pos_.line_pos_++;
         (loc_->pos_.line_pos_)++;
     }else{
+        (loc_->pos_.line_pos_)++;
         (loc_->pcurrent_char_)--;
     }
     return t;
@@ -378,6 +384,7 @@ bool Aux_expr_scaner::regexp_name_proc()
         lexeme_pos_.end_pos_.line_pos_++;
         (loc_->pos_.line_pos_)++;
     }else{
+        (loc_->pos_.line_pos_)++;
         (loc_->pcurrent_char_)--;
     }
     return t;
@@ -386,11 +393,15 @@ bool Aux_expr_scaner::regexp_name_proc()
 bool Aux_expr_scaner::hat_proc()
 {
     bool t = false;
+    (loc_->pos_.line_pos_)++;
     if(ch_ == U']'){
-        token_.lexeme_.code_ = Aux_expr_lexem_code::End_char_class_complement;
-        lexeme_pos_.end_pos_.line_pos_++;
+        token_.lexeme_.code_   =  Aux_expr_lexem_code::End_char_class_complement;
         (loc_->pos_.line_pos_)++;
+        lexeme_pos_.end_pos_.line_pos_++;
     }else{
+        lexeme_pos_.begin_pos_.line_pos_ = lexeme_pos_.end_pos_.line_pos_
+                                         = (loc_->pos_.line_pos_);
+        (loc_->pos_.line_pos_)++;
         (loc_->pcurrent_char_)--;
     }
     return t;
